@@ -11,7 +11,6 @@ export default class Main {
     this.height = window.innerHeight;
     this.devicePixeRatio = window.devicePixelRatio; //返回当前显示设备的物理像素分辨率与CSS像素分辨率的比值
     this.viewCenter = new THREE.Vector3(0, 0, 0); //原点
-
     this.frontViewName = 'front-rubik'; //正视角魔方名称
     this.endViewName = 'end-rubik'; //反视角魔方名称
     this.minPercent = 0.25; //最少视图占比25%
@@ -22,10 +21,9 @@ export default class Main {
     this.normalize; //转动时手指触碰的平面法向量
     this.targetRubik; //转动时手指触碰的魔方
     this.anotherRubik; //转动时手指没触碰的魔方
-
-		this.startPoint; //触摸点
-		this.movePoint; //滑动点
-		this.isRotating = false; //魔方是否转动
+    this.startPoint; //触摸点
+    this.movePoint; //滑动点
+    this.isRotating = false; //魔方是否转动
 
     this.initRender(); //渲染器
     this.initCamera(); //相机
@@ -100,7 +98,7 @@ export default class Main {
     window.requestAnimationFrame(this.render.bind(this), canvas)
   }
 
-  //触控条事件
+  //触控事件
   initEvent() {
     wx.onTouchStart(this.touchStart.bind(this));
     wx.onTouchMove(this.touchMove.bind(this));
@@ -114,9 +112,9 @@ export default class Main {
       this.touchLine.enable();
     } else {
       this.getIntersects(event);
-			if(!this.isRotating && this.intersect){ //触摸点在魔方上且魔方没有转动
-				this.startPoint = this.intersect.point; //开始转动，设置起点
-			}
+      if (!this.isRotating && this.intersect) { //触摸点在魔方上且魔方没有转动
+        this.startPoint = this.intersect.point; //开始转动，设置起点
+      }
     }
   }
   //触摸移动
@@ -127,12 +125,48 @@ export default class Main {
       let frontPercent = touch.clientY / window.innerHeight;
       let endPercent = 1 - frontPercent;
       this.rubikResize(frontPercent, endPercent);
+    } else {
+      this.getIntersects(event);
+			if (!this.isRotating && this.startPoint && this.intersect) {
+        this.movePoint = this.intersect.point;
+				//equals() 检查该向量和v3的严格相等性。
+				if (!this.movePoint.equals(this.startPoint)) {
+          this.rotateRubik();
+        }
+      }
     }
   }
   //结束触摸
   touchEnd(event) {
     this.touchLine.disable();
   }
+
+	//转动魔方
+	rotateRubik(){
+		//sub() 从该向量减去向量v
+		this.isRotating = true;//转动标识置为true
+		console.log(this.movePoint)
+		let sub = this.movePoint.sub(this.startPoint);//计算滑动方向
+		console.log(sub)
+		let direction = this.targetRubik.getDirection(sub, this.normalize);//计算转动方向
+		let cubeIndex = this.intersect.object.cubeIndex;
+		this.targetRubik.rotateMove(cubeIndex, direction);
+		let anotherIndex = cubeIndex - this.targetRubik.minCubeIndex + this.anotherRubik.minCubeIndex;
+		this.anotherRubik.rotateMove(anotherIndex, direction, () => {
+			this.resetRotateParams();
+		});
+	}
+
+	//重置魔方参数
+	resetRotateParams() {
+		this.isRotating = false;
+		this.targetRubik = null;
+		this.anotherRubik = null;
+		this.intersect = null;
+		this.normalize = null;
+		this.startPoint = null;
+		this.movePoint = null;
+	}
 
   //正反魔方区域占比变化
   rubikResize(frontPercent, endPercent) {
@@ -152,30 +186,35 @@ export default class Main {
     //魔方正反面检测，只需要更新一个面
     let rubikTypeName;
     if (this.touchLine.screenRect.top > touch.clientY) {
-			this.targetRubik = this.frontRubik;
-			this.anotherRubik = this.endRubik;
-			rubikTypeName = this.frontViewName;
-		} else if (this.touchLine.screenRect.top + this.touchLine.screenRect.height < touch.clientY){
-			this.targetRubik = this.endRubik;
-			this.anotherRubik = this.frontRubik;
-			rubikTypeName = this.endViewName;
-		}
+      this.targetRubik = this.frontRubik;
+      this.anotherRubik = this.endRubik;
+      rubikTypeName = this.frontViewName;
+    } else if (this.touchLine.screenRect.top + this.touchLine.screenRect.height < touch.clientY) {
+      this.targetRubik = this.endRubik;
+      this.anotherRubik = this.frontRubik;
+      rubikTypeName = this.endViewName;
+    }
 
-		let targetIntersect;
-		for(let i = 0; i<this.scene.children.length; i++){
-			if (this.scene.children[i].childType == rubikTypeName) {
-				targetIntersect = this.scene.children[i];
-				break;
+    let targetIntersect;
+    for (let i = 0; i < this.scene.children.length; i++) {
+      if (this.scene.children[i].childType == rubikTypeName) {
+        targetIntersect = this.scene.children[i];
+        break;
+      }
+    }
+
+ 		//获得触摸物体
+		if (targetIntersect) {
+			let intersects = this.raycaster.intersectObjects(targetIntersect.children);
+			if (intersects.length >= 2) {
+				if (intersects[0].object.cubeType === 'coverCube') {
+					this.intersect = intersects[1];
+					this.normalize = intersects[0].face.normal;
+				} else {
+					this.intersect = intersects[0];
+					this.normalize = intersects[1].face.normal;
+				}
 			}
-		}
-		let intersects = this.raycaster.intersectObjects(targetIntersect.children); //获得触摸物体
-		console.log(intersects)
-		if (intersects[0].object.cubeType === 'coverCube') {
-			this.intersect = intersects[1];
-			this.normalize = intersects[0].face.normal;
-		} else {
-			this.intersect = intersects[0];
-			this.normalize = intersects[1].face.normal;
 		}
   }
 }
