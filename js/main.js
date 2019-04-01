@@ -115,6 +115,10 @@ export default class Main {
       if (!this.isRotating && this.intersect) { //触摸点在魔方上且魔方没有转动
         this.startPoint = this.intersect.point; //开始转动，设置起点
       }
+
+			if (!this.isRotating && !this.intersect) {//触摸点没在魔方上
+				this.startPoint = new THREE.Vector2(touch.clientX, touch.clientY);
+			}
     }
   }
   //触摸移动
@@ -127,13 +131,20 @@ export default class Main {
       this.rubikResize(frontPercent, endPercent);
     } else {
       this.getIntersects(event);
-			if (!this.isRotating && this.startPoint && this.intersect) {
+			if (!this.isRotating && this.startPoint && this.intersect) { //滑动点在魔方上且魔方没有转动
         this.movePoint = this.intersect.point;
-				//equals() 检查该向量和v3的严格相等性。
-				if (!this.movePoint.equals(this.startPoint)) {
+        //equals() 检查该向量和v3的严格相等性。
+				if (!this.movePoint.equals(this.startPoint)) { //触摸点和滑动点不一样则意味着可以得到滑动方向
           this.rotateRubik();
         }
       }
+
+			if (!this.isRotating && this.startPoint && !this.intersect) {//触摸点没在魔方上
+				this.movePoint = new THREE.Vector2(touch.clientX, touch.clientY);
+				if (!this.movePoint.equals(this.startPoint)) {
+					this.rotateView();
+				}
+			}
     }
   }
   //结束触摸
@@ -141,32 +152,30 @@ export default class Main {
     this.touchLine.disable();
   }
 
-	//转动魔方
-	rotateRubik(){
-		//sub() 从该向量减去向量v
-		this.isRotating = true;//转动标识置为true
-		console.log(this.movePoint)
-		let sub = this.movePoint.sub(this.startPoint);//计算滑动方向
-		console.log(sub)
-		let direction = this.targetRubik.getDirection(sub, this.normalize);//计算转动方向
-		let cubeIndex = this.intersect.object.cubeIndex;
-		this.targetRubik.rotateMove(cubeIndex, direction);
-		let anotherIndex = cubeIndex - this.targetRubik.minCubeIndex + this.anotherRubik.minCubeIndex;
-		this.anotherRubik.rotateMove(anotherIndex, direction, () => {
-			this.resetRotateParams();
-		});
-	}
+  //转动魔方
+  rotateRubik() {
+    //sub() 从该向量减去向量v
+    this.isRotating = true; //转动标识置为true
+    let sub = this.movePoint.sub(this.startPoint); //计算滑动方向
+    let direction = this.targetRubik.getDirection(sub, this.normalize); //计算转动方向
+    let cubeIndex = this.intersect.object.cubeIndex;
+    this.targetRubik.rotateMove(cubeIndex, direction);
+    let anotherIndex = cubeIndex - this.targetRubik.minCubeIndex + this.anotherRubik.minCubeIndex;
+    this.anotherRubik.rotateMove(anotherIndex, direction, () => {
+      this.resetRotateParams();
+    });
+  }
 
-	//重置魔方参数
-	resetRotateParams() {
-		this.isRotating = false;
-		this.targetRubik = null;
-		this.anotherRubik = null;
-		this.intersect = null;
-		this.normalize = null;
-		this.startPoint = null;
-		this.movePoint = null;
-	}
+  //重置魔方参数
+  resetRotateParams() {
+    this.isRotating = false;
+    this.targetRubik = null;
+    this.anotherRubik = null;
+    this.intersect = null;
+    this.normalize = null;
+    this.startPoint = null;
+    this.movePoint = null;
+  }
 
   //正反魔方区域占比变化
   rubikResize(frontPercent, endPercent) {
@@ -203,18 +212,117 @@ export default class Main {
       }
     }
 
- 		//获得触摸物体
-		if (targetIntersect) {
-			let intersects = this.raycaster.intersectObjects(targetIntersect.children);
-			if (intersects.length >= 2) {
-				if (intersects[0].object.cubeType === 'coverCube') {
-					this.intersect = intersects[1];
-					this.normalize = intersects[0].face.normal;
-				} else {
-					this.intersect = intersects[0];
-					this.normalize = intersects[1].face.normal;
-				}
-			}
-		}
+    //获得触摸物体
+    if (targetIntersect) {
+      let intersects = this.raycaster.intersectObjects(targetIntersect.children);
+      if (intersects.length >= 2) {
+        if (intersects[0].object.cubeType === 'coverCube') {
+          this.intersect = intersects[1];
+          this.normalize = intersects[0].face.normal;
+        } else {
+          this.intersect = intersects[0];
+          this.normalize = intersects[1].face.normal;
+        }
+      }
+    }
   }
+
+  //视图转动方向
+  getViewDirection(type, startPoint, movePoint) {
+    let direction;
+    let rad = 30 * Math.PI / 180;
+    let lenX = movePoint.x - startPoint.x;
+    let lenY = movePoint.y - startPoint.y;
+    if (type == this.frontViewName) {
+      if (startPoint.x > window.innerWidth / 2) {
+        if (Math.abs(lenY) > Math.abs(lenX) * Math.tan(rad)) {
+          if (lenY < 0) {
+            direction = 2.1;
+          } else {
+            direction = 3.1;
+          }
+        } else {
+          if (lenX > 0) {
+            direction = 0.3;
+          } else {
+            direction = 1.3;
+          }
+        }
+      } else {
+        if (Math.abs(lenY) > Math.abs(lenX) * Math.tan(rad)) {
+          if (lenY < 0) {
+            direction = 2.4;
+          } else {
+            direction = 3.4;
+          }
+        } else {
+          if (lenX > 0) {
+            direction = 4.4;
+          } else {
+            direction = 5.4;
+          }
+        }
+      }
+    } else {
+      if (startPoint.x > window.innerWidth / 2) {
+        if (Math.abs(lenY) > Math.abs(lenX) * Math.tan(rad)) {
+          if (lenY < 0) {
+            direction = 2.2;
+          } else {
+            direction = 3.2;
+          }
+        } else {
+          if (lenX > 0) {
+            direction = 1.4;
+          } else {
+            direction = 0.4;
+          }
+        }
+      } else {
+        if (Math.abs(lenY) > Math.abs(lenX) * Math.tan(rad)) {
+          if (lenY < 0) {
+            direction = 2.3;
+          } else {
+            direction = 3.3;
+          }
+        } else {
+          if (lenX > 0) {
+            direction = 5.3;
+          } else {
+            direction = 4.3;
+          }
+        }
+      }
+    }
+    return direction;
+  }
+
+  getViewRotateCubeIndex(type) {
+    if (type == this.frontViewName) {
+      return 10;
+    } else {
+      return 65;
+    }
+  }
+
+	rotateView() {
+		if (this.startPoint.y < this.touchLine.screenRect.top) {
+			this.targetRubik = this.frontRubik;
+			this.anotherRubik = this.endRubik;
+		} else if (this.startPoint.y > this.touchLine.screenRect.top + this.touchLine.screenRect.height) {
+			this.targetRubik = this.endRubik;
+			this.anotherRubik = this.frontRubik;
+		}
+		if (this.targetRubik && this.anotherRubik) {
+			this.isRotating = true;//转动标识置为true
+			//计算整体转动方向
+			let targetType = this.targetRubik.group.childType;
+			let cubeIndex = this.getViewRotateCubeIndex(targetType);
+			let direction = this.getViewDirection(targetType, this.startPoint, this.movePoint);
+			this.targetRubik.rotateMoveWhole(cubeIndex, direction);
+			this.anotherRubik.rotateMoveWhole(cubeIndex, direction, () => {
+				this.resetRotateParams();
+			});
+		}
+	}
 }

@@ -156,8 +156,8 @@ export default class Rubik {
     this.main.scene.add(this.group);
 		this.getMinCubeIndex();
 		//辅助线
-		this.main.scene.add(new THREE.AxesHelper(500))
-		this.group.add(new THREE.AxesHelper(500))
+		// this.main.scene.add(new THREE.AxesHelper(500))
+		// this.group.add(new THREE.AxesHelper(500))
   }
 
   resizeHeight(percent, transformTag) {
@@ -496,5 +496,21 @@ export default class Rubik {
 			ids.push(this.cubes[i].cubeIndex);
 		}
 		this.minCubeIndex = Math.min.apply(null, ids);
+	}
+
+	//转动魔方整体
+	rotateMoveWhole(cubeIndex, direction, callback, totalTime) {
+		if (cubeIndex != null && direction != null) {
+			totalTime = totalTime ? totalTime : this.defaultTotalTime;
+			let elements = this.cubes;
+			requestAnimationFrame( (timestamp) => {
+				this.rotateAnimation(elements, direction, timestamp, 0, 0, () => {
+					this.updateCubeIndex(elements);
+					if (callback) {
+						callback();
+					}
+				}, totalTime);
+			});
+		}
 	}
 }
