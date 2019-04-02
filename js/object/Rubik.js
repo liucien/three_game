@@ -513,4 +513,115 @@ export default class Rubik {
 			});
 		}
 	}
+
+	/**
+   * 高度所占比例发生变化
+   */
+	resizeHeight(percent, transformTag) {
+		if (percent < this.main.minPercent) {
+			percent = this.main.minPercent;
+		}
+		if (percent > (1 - this.main.minPercent)) {
+			percent = 1 - this.main.minPercent;
+		}
+		this.group.scale.set(percent, percent, percent);
+		this.group.position.y = this.main.originHeight * (0.5 - percent / 2) * transformTag;
+	}
+
+  /**
+   * 以正视角魔方为基准
+   * 魔方基本公式 U、R、F、D、L、B、u、r、f、d、l、b
+   */
+	U(next) {
+		this.rotateMove(this.minCubeIndex, 1.3, next, 100);
+	}
+	R(next) {
+		this.rotateMove(this.minCubeIndex, 2.4, next, 100);
+	}
+	F(next) {
+		this.rotateMove(this.minCubeIndex, 4.1, next, 100);
+	}
+	D(next) {
+		this.rotateMove(this.minCubeIndex + 6, 4.4, next, 100);
+	}
+	L(next) {
+		this.rotateMove(this.minCubeIndex + 18, 1.1, next, 100);
+	}
+	B(next) {
+		this.rotateMove(this.minCubeIndex + 2, 2.1, next, 100);
+	}
+	u(next) {
+		this.rotateMove(this.minCubeIndex, 4.4, next, 100);
+	}
+	r(next) {
+		this.rotateMove(this.minCubeIndex, 1.1, next, 100);
+	}
+	f(next) {
+		this.rotateMove(this.minCubeIndex, 2.1, next, 100);
+	}
+	d(next) {
+		this.rotateMove(this.minCubeIndex + 6, 1.3, next, 100);
+	}
+	l(next) {
+		this.rotateMove(this.minCubeIndex + 18, 2.4, next, 100);
+	}
+	b(next) {
+		this.rotateMove(this.minCubeIndex + 2, 4.1, next, 100);
+	}
+
+  /**
+   * 按顺序执行数组里边的方法
+   */
+	runMethodAtNo(arr, no, next) {
+		if (no >= arr.length - 1) {
+			if (next) {
+				this[arr[no]](next);
+			} else {
+				this[arr[no]]();
+			}
+		} else {
+			this[arr[no]]( () => {
+				if (no < arr.length - 1) {
+					no++
+					this.runMethodAtNo(arr, no, next);
+				}
+			})
+		}
+	}
+
+  /**
+   * 随机旋转，用于打乱魔方
+   */
+	randomRotate(callback) {
+		let stepNum = 21;
+		let stepArr = [];
+		let funcArr = ['R', 'U', 'F', 'B', 'L', 'D', 'r', 'u', 'f', 'b', 'l', 'd'];
+		for (let i = 0; i < stepNum; i++) {
+			let num = parseInt(Math.random() * funcArr.length);
+			stepArr.push(funcArr[num]);
+		}
+		this.runMethodAtNo(stepArr, 0, callback);
+		return stepArr;
+	}
+
+	//重置
+	reset() {
+		for (let i = 0; i < this.cubes.length; i++) {
+			let matrix = this.cubes[i].matrix.clone();
+			matrix.getInverse(matrix);
+			let cube = this.cubes[i];
+			cube.applyMatrix(matrix);
+
+			for (let j = 0; j < this.initStatus.length; j++) {
+				let status = this.initStatus[j];
+				if (cube.id == status.cubeIndex) {
+					cube.position.x = status.x;
+					cube.position.y = status.y;
+					cube.position.z = status.z;
+					cube.cubeIndex = cube.id;
+					break;
+				}
+			}
+		}
+	}
 }

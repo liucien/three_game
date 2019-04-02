@@ -1,6 +1,9 @@
 import * as THREE from 'threejs/three.js';
+import TWEEN from './tween/tween.js';
 import BasicRubik from './object/Rubik.js';
 import TouchLine from './object/TouchLine.js';
+import ResetBtn from './object/ResetBtn.js';
+import DisorganizeBtn from './object/DisorganizeBtn.js';
 import './threejs/OrbitControls.js';
 const Context = canvas.getContext('webgl');
 
@@ -32,6 +35,8 @@ export default class Main {
     this.initObject(); //物体
     this.initEvent(); //触控条事件
     this.render(); //渲染函数
+
+    this.enterAnimation(); //初始打乱动画
   }
 
   initRender() {
@@ -59,8 +64,12 @@ export default class Main {
     // this.orbitController.rotateSpeed = 2;
     // this.orbitController.target = this.viewCenter; //设置控制点
 
+		//透视投影相机视角为垂直视角，根据视角可以求出原点所在裁切面的高度，然后已知高度和宽高比可以计算出宽度
     this.originHeight = Math.tan(22.5 / 180 * Math.PI) * this.camera.position.z * 2;
     this.originWidth = this.originHeight * this.camera.aspect;
+
+		//UI元素逻辑尺寸和屏幕尺寸比率
+		this.uiRadio = this.originWidth / window.innerWidth;
   }
 
   initScene() {
@@ -90,6 +99,9 @@ export default class Main {
     //操纵条
     this.touchLine = new TouchLine(this);
     this.rubikResize((1 - this.minPercent), this.minPercent); //默认正视图占85%区域，反视图占15%区域
+
+    this.resetBtn = new ResetBtn(this);
+    this.disorganizeBtn = new DisorganizeBtn(this);
   }
 
   render() {
@@ -108,17 +120,25 @@ export default class Main {
   touchStart(event) {
     let touch = event.touches[0];
     this.startPoint = touch;
-    if (this.touchLine.isHover(touch)) {
+    if (this.touchLine.isHover(touch)) { //控制条
       this.touchLine.enable();
+    } else if (this.resetBtn.isHover(touch) && !this.isRotating) { //重置
+      this.resetBtn.enable();
+      this.resetRubik();
+    } else if (this.disorganizeBtn.isHover(touch) && !this.isRotating) { //打乱
+      this.disorganizeBtn.enable();
+      this.disorganizeRubik();
     } else {
+			//触摸魔方
       this.getIntersects(event);
       if (!this.isRotating && this.intersect) { //触摸点在魔方上且魔方没有转动
         this.startPoint = this.intersect.point; //开始转动，设置起点
       }
 
-			if (!this.isRotating && !this.intersect) {//触摸点没在魔方上
-				this.startPoint = new THREE.Vector2(touch.clientX, touch.clientY);
-			}
+      if (!this.isRotating && !this.intersect) { //触摸点没在魔方上
+        this.startPoint = new THREE.Vector2(touch.clientX, touch.clientY);
+      }
+
     }
   }
   //触摸移动
@@ -131,24 +151,26 @@ export default class Main {
       this.rubikResize(frontPercent, endPercent);
     } else {
       this.getIntersects(event);
-			if (!this.isRotating && this.startPoint && this.intersect) { //滑动点在魔方上且魔方没有转动
+      if (!this.isRotating && this.startPoint && this.intersect) { //滑动点在魔方上且魔方没有转动
         this.movePoint = this.intersect.point;
         //equals() 检查该向量和v3的严格相等性。
-				if (!this.movePoint.equals(this.startPoint)) { //触摸点和滑动点不一样则意味着可以得到滑动方向
+        if (!this.movePoint.equals(this.startPoint)) { //触摸点和滑动点不一样则意味着可以得到滑动方向
           this.rotateRubik();
         }
       }
 
-			if (!this.isRotating && this.startPoint && !this.intersect) {//触摸点没在魔方上
-				this.movePoint = new THREE.Vector2(touch.clientX, touch.clientY);
-				if (!this.movePoint.equals(this.startPoint)) {
-					this.rotateView();
-				}
-			}
+      if (!this.isRotating && this.startPoint && !this.intersect) { //触摸点没在魔方上
+        this.movePoint = new THREE.Vector2(touch.clientX, touch.clientY);
+        if (!this.movePoint.equals(this.startPoint)) {
+          this.rotateView();
+        }
+      }
     }
   }
   //结束触摸
   touchEnd(event) {
+		this.resetBtn.disable();
+		this.disorganizeBtn.disable();
     this.touchLine.disable();
   }
 
@@ -305,23 +327,97 @@ export default class Main {
     }
   }
 
-	rotateView() {
-		if (this.startPoint.y < this.touchLine.screenRect.top) {
-			this.targetRubik = this.frontRubik;
-			this.anotherRubik = this.endRubik;
-		} else if (this.startPoint.y > this.touchLine.screenRect.top + this.touchLine.screenRect.height) {
-			this.targetRubik = this.endRubik;
-			this.anotherRubik = this.frontRubik;
-		}
-		if (this.targetRubik && this.anotherRubik) {
-			this.isRotating = true;//转动标识置为true
-			//计算整体转动方向
-			let targetType = this.targetRubik.group.childType;
-			let cubeIndex = this.getViewRotateCubeIndex(targetType);
-			let direction = this.getViewDirection(targetType, this.startPoint, this.movePoint);
-			this.targetRubik.rotateMoveWhole(cubeIndex, direction);
-			this.anotherRubik.rotateMoveWhole(cubeIndex, direction, () => {
-				this.resetRotateParams();
+  rotateView() {
+    if (this.startPoint.y < this.touchLine.screenRect.top) {
+      this.targetRubik = this.frontRubik;
+      this.anotherRubik = this.endRubik;
+    } else if (this.startPoint.y > this.touchLine.screenRect.top + this.touchLine.screenRect.height) {
+      this.targetRubik = this.endRubik;
+      this.anotherRubik = this.frontRubik;
+    }
+    if (this.targetRubik && this.anotherRubik) {
+      this.isRotating = true; //转动标识置为true
+      //计算整体转动方向
+      let targetType = this.targetRubik.group.childType;
+      let cubeIndex = this.getViewRotateCubeIndex(targetType);
+      let direction = this.getViewDirection(targetType, this.startPoint, this.movePoint);
+      this.targetRubik.rotateMoveWhole(cubeIndex, direction);
+      this.anotherRubik.rotateMoveWhole(cubeIndex, direction, () => {
+        this.resetRotateParams();
+      });
+    }
+  }
+
+  enterAnimation() {
+    let isAnimationEnd = false;
+
+    let endStatus = { //目标状态
+      rotateY: this.frontRubik.group.rotation.y,
+      y: this.frontRubik.group.position.y,
+      z: this.frontRubik.group.position.z
+    }
+
+    //把魔方设置为动画开始状态
+    this.frontRubik.group.rotateY(-90 / 180 * Math.PI);
+    this.frontRubik.group.position.y += this.originHeight / 3;
+    this.frontRubik.group.position.z -= 350;
+
+    let startStatus = { //开始状态
+      rotateY: this.frontRubik.group.rotation.y,
+      y: this.frontRubik.group.position.y,
+      z: this.frontRubik.group.position.z
+    }
+
+    let tween = new TWEEN.Tween(startStatus)
+      .to(endStatus, 2000)
+      .easing(TWEEN.Easing.Quadratic.In)
+      .onUpdate(() => {
+        this.frontRubik.group.rotation.y = startStatus.rotateY;
+        this.frontRubik.group.position.y = startStatus.y
+        this.frontRubik.group.position.z = startStatus.z
+      }).onComplete(() => {
+        isAnimationEnd = true;
+      });
+
+    const animate = (time) => {
+      if (!isAnimationEnd) {
+        requestAnimationFrame(animate);
+        TWEEN.update();
+      }
+    }
+
+    setTimeout(() => {
+      tween.start();
+      requestAnimationFrame(animate);
+    }, 500)
+
+    let stepArr = this.frontRubik.randomRotate();
+    this.endRubik.runMethodAtNo(stepArr, 0, () => {
+      this.initEvent(); //进场动画结束之后才能进行手动操作
+    });
+  }
+
+	/**
+	* 重置正反视图魔方
+	*/
+	resetRubik() {
+		this.frontRubik.reset();
+		this.endRubik.reset();
+	}
+
+  /**
+   * 扰乱正反视图魔方
+   */
+	disorganizeRubik(callback) {
+		var self = this;
+		if (!this.isRotating) {
+			this.isRotating = true;
+			var stepArr = this.frontRubik.randomRotate();
+			this.endRubik.runMethodAtNo(stepArr, 0, function () {
+				if (callback) {
+					callback();
+				}
+				self.resetRotateParams();
 			});
 		}
 	}
