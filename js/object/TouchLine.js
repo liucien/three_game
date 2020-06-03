@@ -22,7 +22,7 @@ export default class TouchLine {
 
     //图片加载器
     const loader = new THREE.TextureLoader();
-    loader.load('images/touch-line.png',
+    loader.load('images/touch_line.png',
       texture => {
         let geometry = new THREE.PlaneGeometry(this.width, this.height);
         let material = new THREE.MeshBasicMaterial({

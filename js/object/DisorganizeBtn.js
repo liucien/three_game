@@ -19,7 +19,7 @@ export default class DisorganizeBtn {
 		}
 
 		const loader = new THREE.TextureLoader();
-		loader.load('images/disorganize-btn.png', texture => {
+		loader.load('images/disorganize_btn.png', texture => {
 			let geometry = new THREE.PlaneBufferGeometry(this.width,this.height);
 			let material = new THREE.MeshBasicMaterial({ map: texture, transparent:true});
 			this.plane = new THREE.Mesh(geometry, material);

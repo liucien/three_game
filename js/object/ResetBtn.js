@@ -19,7 +19,7 @@ export default class ResetBtn {
 		}
 
 		const loader = new THREE.TextureLoader();
-		loader.load('images/reset-btn.png', texture => {
+		loader.load('images/reset_btn.png', texture => {
 			let geometry = new THREE.PlaneBufferGeometry(this.width,this.height);
 			let material = new THREE.MeshBasicMaterial({ map: texture, transparent:true});
 			this.plane = new THREE.Mesh(geometry, material);
