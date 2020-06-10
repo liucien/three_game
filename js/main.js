@@ -37,9 +37,12 @@ export default class Main {
     this.render(); //渲染函数
 
     this.enterAnimation(); //初始打乱动画
+
+
   }
 
   initRender() {
+
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       context: this.context
@@ -102,12 +105,14 @@ export default class Main {
 
     this.resetBtn = new ResetBtn(this);
     this.disorganizeBtn = new DisorganizeBtn(this);
+
   }
 
   render() {
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
     window.requestAnimationFrame(this.render.bind(this), canvas)
+  
   }
 
   //触控事件
