@@ -202,6 +202,7 @@ export default class Main {
     this.normalize = null;
     this.startPoint = null;
     this.movePoint = null;
+
   }
 
   //正反魔方区域占比变化
@@ -233,15 +234,18 @@ export default class Main {
 
     let targetIntersect;
     for (let i = 0; i < this.scene.children.length; i++) {
+
       if (this.scene.children[i].childType == rubikTypeName) {
         targetIntersect = this.scene.children[i];
         break;
       }
+
     }
 
     //获得触摸物体
     if (targetIntersect) {
-      let intersects = this.raycaster.intersectObjects(targetIntersect.children);
+      const intersects = this.raycaster.intersectObjects(targetIntersect.children);
+
       if (intersects.length >= 2) {
         if (intersects[0].object.cubeType === 'coverCube') {
           this.intersect = intersects[1];
